@@ -1,19 +1,45 @@
-function submit(edit=false) {
-    if (!document.getElementById('botid').value)
-        return flash(document.getElementById('botid'))
-    if (!document.getElementById('prefix').value)
-        return flash(document.getElementById('prefix'))
-    if (!document.getElementById('description').value)
-        return flash(document.getElementById('description'))
+var recaptcha_token = null;
 
-    let data = {
-        id: document.getElementById('botid').value,
-        prefix: document.getElementById('prefix').value,
-        description: document.getElementById('description').value,
-        invite: document.getElementById('invite').value,
-        owners: document.getElementById('owners').value,
-        long: CKEDITOR.instances.longdesc.getData()
-    };
+function update_token(token) {
+    recaptcha_token = token;
+}
+
+function flash(element_id) {
+    let element = document.getElementById(element_id);
+    
+    const yOffset = -100; 
+    const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+
+    window.scrollTo({top: y, behavior: 'smooth'});
+
+    element.style.border = "2px solid #ff0000";
+    element.style.backgroundColor = "rgba(255, 0, 0, 0.5)";
+    setTimeout(() => {
+        element.style.backgroundColor = "rgba(0, 0, 0, 0)";
+        element.style.border = "1px solid #888";
+    }, 600)
+}
+
+function submit() {
+    let required = ["botid", "prefix", "description"]
+    for (let v of required) {
+        if (!document.getElementById(v).value) {
+            $(`a[href="##edit"]`).click()
+            flash(v)
+            return;
+        }
+    }
+
+    let form_items = ["botid", "prefix", "description", "invite", "support", "website", "github", "tags", "owner-ids", "note", "webhook"]
+    let data = {}
+    for (let form_item of form_items) {
+        data[form_item] = $(`#${form_item}`).val()
+    }
+
+    data["id"] = data["botid"];
+    data["owners"] = data["owner-ids"];
+    data["long"] = CKEDITOR.instances.longdesc.getData();
+    data["recaptcha_token"] = recaptcha_token
 
     let method = "POST";
     if (location.href.includes("/bots/edit")) method = "PATCH"
@@ -25,6 +51,8 @@ function submit(edit=false) {
         body: JSON.stringify(data)
     }).then(body => body.json()).then(body => {
         if (!body.success) {
+            recaptcha_token = null;
+            grecaptcha.reset();
             let opts = {
                 type: "error",
                 text: body.message,
@@ -44,16 +72,6 @@ function submit(edit=false) {
             else location.href = "/success"
         }
     })
-}
-
-function flash(element) {
-    element.scrollIntoView();
-    element.style.border = "2px solid #ff0000";
-    element.style.backgroundColor = "rgba(255, 0, 0, 0.5)";
-    setTimeout(() => {
-        element.style.backgroundColor = "rgba(0, 0, 0, 0)";
-        element.style.border = "1px solid #888";
-    }, 600)
 }
 
 $( document ).ready(async function() {
@@ -138,10 +156,87 @@ $( document ).ready(async function() {
         uiColor: window.getComputedStyle(document.body).getPropertyValue('--background-2').replace(" ", ""),
         removeButtons: 'Save,Templates,Cut,Find,SelectAll,Scayt,Form,Checkbox,Replace,NewPage,Preview,Print,Paste,Copy,PasteText,PasteFromWord,Radio,TextField,Textarea,Select,Button,ImageButton,HiddenField,CopyFormatting,RemoveFormat,Superscript,Subscript,Outdent,Indent,CreateDiv,Language,BidiRtl,BidiLtr,Unlink,Anchor,Flash,Font,Smiley,PageBreak,SpecialChar,Iframe,FontSize,ShowBlocks,Maximize,About,Format,Styles'
     });
-})
-CKEDITOR.on('instanceReady', () => {
-    let bg = window.getComputedStyle(document.body).getPropertyValue('--background-color')
-    let color = window.getComputedStyle(document.body).getPropertyValue('--color')
-    $(".cke_wysiwyg_frame ").contents().find('body').css({'background-color' : bg, color});;
+
+    /* Tags */
+    var select = $('select[multiple]');
+    var options = select.find('option');
+
+    var div = $('<div />').addClass('selectMultiple');
+    var active = $('<div />');
+    var list = $('<ul />');
+    var placeholder = select.data('placeholder');
+
+    var span = $('<span />').text(placeholder).appendTo(active);
+
+    options.each(function() {
+        var text = $(this).text();
+        if($(this).is(':selected')) {
+            active.append($('<a />').html('<em>' + text + '</em><i></i>'));
+            span.addClass('hide');
+        } else {
+            list.append($('<li />').html(text));
+        }
+    });
+
+    active.append($('<div />').addClass('arrow'));
+    div.append(active).append(list);
+
+    select.wrap(div);
+
+    $(document).on('click', '.selectMultiple ul li', function(e) {
+        var select = $(this).parent().parent();
+        var li = $(this);
+        if(!select.hasClass('clicked')) {
+            select.addClass('clicked');
+            li.prev().addClass('beforeRemove');
+            li.next().addClass('afterRemove');
+            li.addClass('remove');
+            var a = $('<a />').addClass('notShown').html('<em>' + li.text() + '</em><i></i>').hide().appendTo(select.children('div'));
+            a.slideDown(100, function() {
+                a.addClass('shown');
+                select.children('div').children('span').addClass('hide');
+                select.find('option:contains(' + li.text() + ')').prop('selected', true);
+            });
+            if(li.prev().is(':last-child'))
+                li.prev().removeClass('beforeRemove');
+            if (li.next().is(':first-child'))
+                li.next().removeClass('afterRemove');
+
+            li.prev().removeClass('beforeRemove');
+            li.next().removeClass('afterRemove');
+
+            li.slideUp(400);
+            li.remove();
+            select.removeClass('clicked');
+        }
+    });
+
+    $(document).on('click', '.selectMultiple > div a', function(e) {
+        var select = $(this).parent().parent();
+        var self = $(this);
+        self.removeClass().addClass('remove');
+        select.addClass('open');
+        self.addClass('disappear');
+        self.animate({ width: 0, height: 0, padding: 0, margin: 0 })
+        var li = $('<li />').text(self.children('em').text()).addClass('notShown').appendTo(select.find('ul'));
+        li.slideDown(400);
+        li.addClass('show');
+        select.find('option:contains(' + self.children('em').text() + ')').prop('selected', false);
+        if(!select.find('option:selected').length)
+            select.children('div').children('span').removeClass('hide');
+        li.removeClass();
+        self.remove();
+    });
+
+    $(document).on('click', '.selectMultiple', function(e) {
+        $(this).toggleClass('open');
+    });
+    
+    CKEDITOR.instances.longdesc.on('mode', () => {
+        let bg = window.getComputedStyle(document.body).getPropertyValue('--background-color')
+        let color = window.getComputedStyle(document.body).getPropertyValue('--color')
+        $(".cke_wysiwyg_frame ").contents().find('body').css({'background-color' : bg, color})
+        $(".cke_source ").css({'background-color' : bg, color})
+    })
 })
 CKEDITOR.disableAutoInline = true;

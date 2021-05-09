@@ -1,26 +1,30 @@
 #navTop
     span.nav.link
-        img(src='/assets/img/logo.png')
-    span.navtag.keep
+        a(href="/")
+            img(src='/assets/img/logo.png')
+    span.navtag
         a(href="/")
             span.navtext.keep Discord Bot List
         include arrow.pug
-        if (isBotInfoPage) 
-            a(href="#")
+        if (bot && !site_key) 
+            a(href=`/bots/${bot.botid}`)
                 span.navtext #{bot.username}
             include arrow.pug
             a(href=`/api/embed/${bot.botid}` target="_blank")
                 span.navtext Embed
-        if (isProfile)
+        if ((req.baseUrl == "/user" || req.baseUrl == "/me") && userProfile)
             a(href=`/user/${userProfile.id}`)
                 span.navtext #{userProfile.username}
-    a#searcher.navtag.search(href='/bots/search/')
+        if (req.baseUrl == "/tag")
+            a(href=`/tag/${tag}`)
+                span.navtext.capitalise #{tag}
+    a#searcher.navtag.keep.search(href='/bots/search/')
         #search.navtext
             i.fas.fa-search
             |  Search
     span.dropdown
-        if (user)
-            a#login.navtag.keep(href='/login') #{user.username}##{user.discriminator}
+        if (req.user)
+            a#login.navtag.keep(href='/login') #{req.user.username}##{req.user.discriminator}
             span.dd-content
                 a(href='/join' target='_blank') Join Server
                 br
@@ -29,6 +33,9 @@
                 a(href='/api/theme') Toggle Theme
                 br
                 a(href='/about') About
+                if (req.user.staff)
+                    br
+                    a(href='/admin') Dashboard
                 br
                 a(href='/logout') Logout
         else

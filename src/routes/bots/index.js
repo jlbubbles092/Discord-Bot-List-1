@@ -4,14 +4,16 @@ const { Router } = require("express");
 const resubmit = require("@routes/bots/resubmit");
 const search = require("@routes/bots/search");
 const edit = require("@routes/bots/edit");
+const like = require("@routes/bots/like");
 const Bots = require("@models/bots");
 
-const { server: {id} } = require("@root/config.json");
+const { server: {id, admin_user_ids, role_ids: {bot_verifier}} } = require("@root/config.json");
 
 const route = Router();
 
 route.use("/resubmit", resubmit);
 route.use("/search", search);
+route.use("/like", like);
 route.use("/edit", edit);
 
 String.prototype.capitalize = function() {
@@ -21,17 +23,31 @@ String.prototype.capitalize = function() {
 route.get('/:id', async (req, res) => {
     let bot = await Bots.findOne({botid: req.params.id}, { _id: false, auth: false });
     
-    const botUser = await req.app.get('client').users.fetch(req.params.id);
-    if (bot.logo !== botUser.displayAvatarURL({format: "png"})) 
-        await Bots.updateOne({ botid: req.params.id }, {$set: {logo: botUser.displayAvatarURL({format: "png"})}});    
+    if (!bot) return res.render("404", {req});
 
-    if (!bot) return res.sendStatus(404);
-    if (bot.state === "deleted") return res.sendStatus(404);
-    let owners;
+    const botUser = await req.app.get('client').users.fetch(req.params.id);
+
+    // Update user properties
+    if (bot.logo !== botUser.displayAvatarURL({format: "png", size: 256})) 
+        await Bots.updateOne({ botid: req.params.id }, {$set: {logo: botUser.displayAvatarURL({format: "png", size: 256})}});
+
+    if (bot.username !== botUser.username)
+        await Bots.updateOne({ botid: req.params.id }, {$set: {username: botUser.username}});
+    
+    if (bot.state === "deleted") return res.render("404", {req})
+
+    let owners = [bot.owners.primary].concat(bot.owners.additional);
+
+    // If bot is unverified, check that the user is either a bot owner, admin or bot verifier
+    if (bot.state == "unverified" && (!req.user || !owners.includes(req.user.id) && !admin_user_ids.includes(req.user.id))) {
+        if (!req.user) return res.render("403", {req})
+        let member = await req.app.get('client').guilds.cache.get(id).members.fetch(req.user.id)
+        if (!member || !member.roles.cache.has(bot_verifier)) return res.render("403", {req})
+    }
+
     try {
-        owners = (await req.app.get('client').guilds.cache.get(id).members.fetch({user: bot.owners})).map(x => { return x.user });
+        owners = (await req.app.get('client').guilds.cache.get(id).members.fetch({user: owners})).map(x => { return x.user });
     } catch (e) {
-        console.log(e)
         owners = [{tag: "Unknown User"}]
     }
     let b = "#8c8c8c";
@@ -67,7 +83,8 @@ route.get('/:id', async (req, res) => {
     }
 
     let discord_verified = (await botUser.fetchFlags()).has("VERIFIED_BOT")
-    let data = {
+
+    res.render("bots", {
         bot,
         botUser,
         servers,
@@ -77,10 +94,8 @@ route.get('/:id', async (req, res) => {
         activity,
         discord_verified,
         bcolour: b,
-        user: req.user,
-        isBotInfoPage: true
-    };
-    res.render("bots", data);
+        req
+    });
 })
 
 module.exports = route;

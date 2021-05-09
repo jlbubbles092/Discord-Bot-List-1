@@ -10,17 +10,18 @@ route.get("/", async (req, res) => {
     search = search.toLowerCase();
     let bots = await getList();
     let found = bots.filter(bot => {
+        if (bot.state !== "verified") return false;
         if (bot.username.toLowerCase().includes(search)) return true;
         else if (bot.description.toLowerCase().includes(search)) return true;
         else return false;
     });
     if (!found) return res.send({ error: "No bots found for this search" });
-    let data = {
+
+    res.render("search", {
         cards: found,
-        search: search,
-        user: req.user
-    };
-    res.render("search", data);
+        search,
+        user: req.user, req
+    });
 });
 
 module.exports = route;

@@ -4,6 +4,8 @@ const cookieParser = require("cookie-parser");
 const session = require("express-session");
 const passport = require("passport");
 
+const { discord_client: {secret} } = require("@root/config.json");
+
 require("@utils/passport.js");
 
 const getFilesSync = require("@utils/fileWalk");
@@ -21,14 +23,18 @@ class App {
     this.express.use(express.static(__dirname + "/../public"));
     this.express.use(
       session({
-        secret:
-          "F577259F38FD820133AE0BE1FB5ED76ABFC26BAC899805AF7A4FA99D4B9580DF",
+        secret,
         resave: false,
         saveUninitialized: false,
       })
     );
     this.express.use(passport.initialize());
     this.express.use(passport.session());
+    this.express.use((req, _, next) => {
+      if (!["/theme", "/login"].includes(req.originalUrl) && !req.originalUrl.startsWith("/api"))
+        req.session.url = req.originalUrl
+      next()
+    })
 
     this.loadRoutes().loadErrorHandler();
   }
@@ -63,7 +69,7 @@ class App {
     this.express.use((req, res) => {
       res.status(404);
 
-      if (req.accepts("html")) return res.render("404");
+      if (req.accepts("html")) return res.render("404", {req});
 
       if (req.accepts("json"))
         return res.send({

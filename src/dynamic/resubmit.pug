@@ -1,6 +1,9 @@
 doctype html
 include includes/head.pug
 script(src='/assets/js/form.js')
+script(src="https://www.google.com/recaptcha/api.js" async defer)
+link(rel="stylesheet" href="/assets/css/tags.css")
+
 body
     include includes/nav.pug
     #content
@@ -18,7 +21,7 @@ body
           .placeholder Prefix
         br
         .input-holder
-          input#description.input(maxlength='120' type='text' placeholder=' ' value=bot.description)
+          input#description.input(maxlength=max_summary_length type='text' placeholder=' ' value=bot.description)
           .placeholder Summary
         br
         .input-holder
@@ -26,13 +29,18 @@ body
           .placeholder Custom Invite
         br
         .input-holder
-          textarea#longdesc.input(rows='7')
+          textarea#longdesc.input(rows='7') #{bot.long}
           .textarea-placeholder
             | Description
         br
         .input-holder
-          input#owners.input.xinput(type='text' placeholder=' ' value=bot.additional)
+          input#note.input(maxlength=max_summary_length type='text' placeholder=' ')
+          .placeholder Note to admin
+        br
+        .input-holder
+          input#owner-ids.input.xinput(type='text' placeholder=' ' value=bot.additional)
           .placeholder Additional Owner IDs
         br
-        a.button(onclick='submit(true)') Reubmit
+        .center-inline.g-recaptcha(data-callback='update_token' data-sitekey=site_key data-theme=req.cookies["theme"] || "light")
+        a.button(onclick='submit(true)') Resubmit
         br

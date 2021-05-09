@@ -38,9 +38,32 @@ const botsSchema = new mongoose.Schema({
     required: true,
     default: "unverified"
   },
+  support: {
+    type: String
+  },
+  website: {
+    type: String
+  },
+  github: {
+    type: String
+  },
+  webhook: {
+    type: String
+  },
+  tags: {
+    type: Array,
+    required: false,
+    default: []
+  },
   owners: {
-      type: Array,
-      required: true
+      primary: {
+        type: String,
+        required: true
+      },
+      additional: {
+        type: Array,
+        default: []
+      }
   },
   auth: {
     type: String
@@ -60,6 +83,20 @@ const botsSchema = new mongoose.Schema({
   nsfw: {
     type: Boolean,
     default: false
+  },
+  likes: {
+    type: Number,
+    default: 0
+  },
+  ratelimit: {
+    time: {
+      type: Date,
+      default: () => Date.now()
+    }
+  },
+  note: {
+    type: String,
+    required: false
   }
 });
 

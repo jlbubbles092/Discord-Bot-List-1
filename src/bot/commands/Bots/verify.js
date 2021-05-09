@@ -19,33 +19,35 @@ module.exports = class extends Command {
         let bot = await Bots.findOne({botid: user.id}, { _id: false });
 
         const botUser = await this.client.users.fetch(user.id);
-        if (bot.logo !== botUser.displayAvatarURL({format: "png"}))
-            await Bots.updateOne({ botid: user.id }, {$set: {state: "verified", logo: botUser.displayAvatarURL({format: "png"})}});
+        if (bot.logo !== botUser.displayAvatarURL({format: "png", size: 256}))
+            await Bots.updateOne({ botid: user.id }, {$set: {state: "verified", logo: botUser.displayAvatarURL({format: "png", size: 256})}});
         else 
             await Bots.updateOne({ botid: user.id }, {$set: { state: "verified" } })
+        
+        let owners = [bot.owners.primary].concat(bot.owners.additional)
         let e = new MessageEmbed()
             .setTitle('Bot Verified')
             .addField(`Bot`, `<@${bot.botid}>`, true)
-            .addField(`Owner(s)`, bot.owners.map(x => `<@${x}>`), true)
+            .addField(`Owner(s)`, owners.map(x => x ? `<@${x}>` : ""), true)
             .addField("Mod", message.author, true)
-            .setThumbnail(botUser.displayAvatarURL({format: "png"}))
+            .setThumbnail(botUser.displayAvatarURL({format: "png", size: 256}))
             .setTimestamp()
             .setColor(0x26ff00)
         modLog.send(e);
-        modLog.send(bot.owners.map(x => `<@${x}>`)).then(m => { m.delete() });
+        modLog.send(owners.map(x => x ? `<@${x}>` : "")).then(m => { m.delete() });
 
-        let owners = await message.guild.members.fetch({user:bot.owners})
+        owners = await message.guild.members.fetch({user:owners})
         owners.forEach(o => {
             o.roles.add(message.guild.roles.cache.get(role_ids.bot_developer));
             o.send(`Your bot \`${bot.username}\` has been verified.`)
         })
         message.guild.members.fetch(message.client.users.cache.find(u => u.id === bot.botid)).then(bot => {
-            bot.roles.set([role_ids.bot, role_ids.verified, role_ids.unmuted]);
+            bot.roles.set([role_ids.bot, role_ids.verified]);
         })
         message.channel.send(`Verified \`${bot.username}\``);
     }
 
     async init() {
-        modLog = this.client.channels.cache.get(mod_log_id);
+        modLog = await this.client.channels.fetch(mod_log_id);
     }
 };

@@ -25,9 +25,9 @@ module.exports = class extends Command {
         for (let bot of bots) {
             let botUser = client.users.cache.get(bot.id);
             if (!botUser) 
-                updates.push({updateOne: {filter: {botid: bot.id}, update: { state: "deleted" }}})
-            if (bot.logo !== botUser.displayAvatarURL({format: "png"}))
-                updates.push({updateOne: {filter: {botid: bot.id}, update: { logo: botUser.displayAvatarURL({format: "png"})}}});
+                updates.push({updateOne: {filter: {botid: bot.id}, update: { state: "deleted", owners: {primary: bot.owners.primary, additional: []} }}})
+            if (bot.logo !== botUser.displayAvatarURL({format: "png", size: 256}))
+                updates.push({updateOne: {filter: {botid: bot.id}, update: { logo: botUser.displayAvatarURL({format: "png", size: 256})}}});
             if (bot.username !== botUser.username)
                 updates.push({updateOne: {filter: {botid: bot.id}, update: { username: botUser.username }}})
         }
